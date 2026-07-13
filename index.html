@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Web-Slinger — Three.js Spider-Man-style Swinger</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="loading">SPINNING UP THE CITY…</div>
+
+<div id="stats" class="hud">
+  <div>HEALTH</div><div class="bar"><i id="hpfill" style="width:100%"></i></div>
+  <div style="margin-top:8px">WEB FLUID</div><div class="bar"><i id="webfill" style="width:100%"></i></div>
+  <div style="margin-top:10px">TOKENS <b id="tok">0</b> / <span id="toktot">0</span></div>
+  <div>TAKEDOWNS <b id="kos">0</b></div>
+  <div>STYLE <b id="score">0</b></div>
+</div>
+
+<div id="speedo" class="hud">
+  <div id="speedbig">0<small>mph</small></div>
+  <div>ALT <span id="alt">0</span> ft</div>
+  <div id="statelbl">GROUNDED</div>
+</div>
+
+<div id="combo"></div>
+<div id="crosshair"></div>
+<div id="toast"></div>
+
+<div id="help" class="hud">
+  <h4>CONTROLS</h4>
+  <div><kbd>MOUSE</kbd> look &nbsp; <kbd>W A S D</kbd> steer</div>
+  <div><kbd>SPACE / LMB</kbd> hold to shoot &amp; swing, release to let go</div>
+  <div><kbd>SHIFT / RMB</kbd> web-zip boost &nbsp; <kbd>W</kbd>(swinging) reel in</div>
+  <div><kbd>F</kbd> punch / dive-kick &nbsp; <kbd>E</kbd> cling wall &nbsp; <kbd>R</kbd> respawn</div>
+  <div><kbd>H</kbd> hide help</div>
+</div>
+
+<div id="start">
+  <h1>WEB-<br>SLINGER</h1>
+  <div class="sub">A Three.js Spider-Swing Sandbox</div>
+  <button class="go" id="goBtn">ENTER THE CITY</button>
+  <div class="keys">
+    <div>Hold <kbd>Space</kbd> or <kbd>Left-Click</kbd> to fire a web and swing. <b>Let go at the bottom of the arc</b> to rocket forward.</div>
+    <div><kbd>Shift</kbd> / <kbd>Right-Click</kbd> zips you up toward a high point — chain it with swings for height.</div>
+    <div><kbd>W A S D</kbd> steer in the air &amp; on the ground · <kbd>E</kbd> to cling to walls · <kbd>F</kbd> to attack.</div>
+  </div>
+  <div class="note">Original red-and-blue web-slinger — not affiliated with Marvel or Insomniac. Move the mouse to look; click to lock the pointer. Best in Chrome. Press <kbd>Space</kbd> right away — you start on a rooftop.</div>
+</div>
+
+<!-- Libraries (CDN): Three.js for rendering, simplex-noise for procedural texture detail -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/simplex-noise/2.4.0/simplex-noise.min.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
