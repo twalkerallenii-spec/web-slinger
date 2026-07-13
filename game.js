@@ -27,9 +27,22 @@ scene.fog = new T.Fog(0x3a1d44, 340, 1700);
 const camera = new T.PerspectiveCamera(64, innerWidth/innerHeight, 0.5, 5000);
 camera.position.set(0, 180, 40);
 
+/* Bloom post-processing (graceful fallback to plain render if the passes didn't load) */
+let composer = null, bloomPass = null;
+try{
+  if(T.EffectComposer && T.RenderPass && T.UnrealBloomPass){
+    composer = new T.EffectComposer(renderer);
+    composer.addPass(new T.RenderPass(scene, camera));
+    bloomPass = new T.UnrealBloomPass(new T.Vector2(innerWidth*0.5, innerHeight*0.5), 0.75, 0.8, 0.72);
+    composer.addPass(bloomPass);
+    composer.setSize(innerWidth, innerHeight);
+  }
+}catch(e){ composer = null; }
+
 addEventListener('resize', ()=>{
   camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
+  if(composer) composer.setSize(innerWidth, innerHeight);
 });
 
 /* ============================ LIGHTING ============================ */
@@ -135,6 +148,10 @@ let ENV = null;
   const cc = new T.CubeCamera(1, 5000, rt); cc.position.set(0, 240, 0); cc.update(renderer, scene); ENV = rt.texture;
 }catch(e){} })();
 
+/* per-frame ambient animators (traffic, sky life, blinking lights) */
+const cityTicks = [];
+window.__cityAnimate = function(dt){ for(let i=0;i<cityTicks.length;i++) cityTicks[i](dt); };
+
 const buildings = [];
 const boxGeo = new T.BoxGeometry(1,1,1); boxGeo.translate(0, 0.5, 0);
 const spireMat = new T.MeshStandardMaterial({ color:0x2b2140, roughness:.6, metalness:.3, emissive:0x140a20 });
@@ -158,7 +175,7 @@ function addBuilding(x,z,w,d,h,arch){
   } else if((arch==='glass'||arch==='office') && h>170){         // modern upper setback
     const h1=h*0.82; box(x,0,z,w,h1,d,mat); box(x,h1,z,w*0.82,h-h1,d*0.82,mat);
     if(h>250) antPos.push({x,z,y:h,hh:26});
-  } else { box(x,0,z,w,h,d,mat); }
+  } else { box(x,0,z,w,h,d,mat); if(h>70 && Math.random()<0.3) box(x,h,z,w*0.5,6+Math.random()*10,d*0.5,mat); }
   if((arch==='brick'||arch==='office') && Math.random()<0.7) tankPos.push({x:x+(Math.random()-.5)*w*.3, z:z+(Math.random()-.5)*d*.3, y:h});
   acPos.push({x:x+(Math.random()-.5)*w*.4, z:z+(Math.random()-.5)*d*.4, y:h});
   if(Math.random()<0.4) acPos.push({x:x+(Math.random()-.5)*w*.4, z:z+(Math.random()-.5)*d*.4, y:h});
@@ -192,7 +209,7 @@ for(let x = -224; x <= 224; x += AVX){
 /* ---- STREETS: dark road grid (base) + light sidewalk blocks w/ crosswalks ---- */
 (function streets(){
   const baseGeo = new T.BoxGeometry(AVX, 0.4, CSZ);
-  const baseMat = new T.MeshStandardMaterial({ color:0x14121c, roughness:.98, metalness:0 });
+  const baseMat = new T.MeshStandardMaterial({ color:0x14121c, roughness:.5, metalness:.2, envMap:ENV, envMapIntensity:.35 });
   const swCv=document.createElement('canvas'); swCv.width=swCv.height=64; const sg=swCv.getContext('2d');
   sg.fillStyle='#3a3a44'; sg.fillRect(0,0,64,64);
   const si=sg.getImageData(0,0,64,64), sd=si.data;
@@ -202,7 +219,7 @@ for(let x = -224; x <= 224; x += AVX){
   for(let k=0;k<7;k++){ sg.fillRect(4+k*8,1,4,6); sg.fillRect(4+k*8,57,4,6); sg.fillRect(1,4+k*8,6,4); sg.fillRect(57,4+k*8,6,4); }
   const swTex=new T.CanvasTexture(swCv);
   const swGeo = new T.BoxGeometry(AVX-14, 0.6, CSZ-12);
-  const swMat = new T.MeshStandardMaterial({ map:swTex, color:0x9a9aa6, roughness:.9, metalness:0 });
+  const swMat = new T.MeshStandardMaterial({ map:swTex, color:0x9a9aa6, roughness:.62, metalness:.2, envMap:ENV, envMapIntensity:.28 });
   const rb = new T.InstancedMesh(baseGeo, baseMat, streetPos.length);
   streetPos.forEach((p,i)=>{ m4.makeTranslation(p.x,0.15,p.z); rb.setMatrixAt(i,m4); }); rb.instanceMatrix.needsUpdate=true; scene.add(rb);
   const sw = new T.InstancedMesh(swGeo, swMat, streetPos.length);
@@ -309,7 +326,7 @@ let updateTraffic=null;
   updateTraffic=function(dt){ for(let i=0;i<CARN;i++){ const c=carData[i]; c.z+=c.v*dt;
     if(c.z>558){ c.z=-558; } else if(c.z<-558){ c.z=558; }
     m4.makeTranslation(c.x,1.7,c.z); cars.setMatrixAt(i,m4); } cars.instanceMatrix.needsUpdate=true; };
-  window.__cityAnimate = updateTraffic;
+  cityTicks.push(updateTraffic);
 })();
 
 /* ---- SUSPENSION BRIDGE over the East River ---- */
@@ -335,6 +352,62 @@ let updateTraffic=null;
     const x=Math.cos(a)*rad, z=Math.sin(a)*rad*1.25, w=40+((i*53)%90), h=50+((i*97)%280);
     m4.makeScale(w,h,w); m4.setPosition(x,0,z); im.setMatrixAt(i,m4); }
   im.instanceMatrix.needsUpdate=true; scene.add(im);
+})();
+
+/* ---- SKY LIFE: moon, blimp, patrol helicopter, bird flock, blinking aviation lights ---- */
+(function skylife(){
+  // moon (opposite the sun; bloom makes it glow)
+  const moon=new T.Mesh(new T.SphereGeometry(58,20,16), new T.MeshBasicMaterial({color:0xfff2dc, fog:false}));
+  moon.position.set(1500,860,1650); scene.add(moon);
+
+  // blimp drifting a slow high circle
+  const blimp=new T.Group();
+  const bBody=new T.Mesh(new T.SphereGeometry(18,18,12), new T.MeshStandardMaterial({color:0xd0d6e0,roughness:.55,metalness:.2,emissive:0x20242e,emissiveIntensity:.4}));
+  bBody.scale.set(2.6,1,1); blimp.add(bBody);
+  const finM=new T.MeshStandardMaterial({color:0xff3b62,emissive:0xff3b62,emissiveIntensity:.7});
+  const fin=new T.Mesh(new T.BoxGeometry(9,9,1),finM); fin.position.x=-42; blimp.add(fin);
+  const adCv=document.createElement('canvas'); adCv.width=128; adCv.height=48; const ag=adCv.getContext('2d');
+  ag.fillStyle='#0a0810'; ag.fillRect(0,0,128,48);
+  ['#28e0ff','#ffd23f','#ff2d7e'].forEach((c,i)=>{ ag.fillStyle=c; ag.fillRect(10,8+i*12,20+i*30,7); });
+  const ad=new T.Mesh(new T.PlaneGeometry(40,15), new T.MeshBasicMaterial({map:new T.CanvasTexture(adCv), toneMapped:false}));
+  ad.position.set(0,0,18.2); blimp.add(ad);
+  scene.add(blimp);
+
+  // helicopter patrol with spinning rotor + searchlight
+  const heli=new T.Group(); const dkM=new T.MeshStandardMaterial({color:0x1c1c24,roughness:.5,metalness:.5});
+  const hBody=new T.Mesh(new T.SphereGeometry(4,12,10),dkM); hBody.scale.set(1.7,1,1); heli.add(hBody);
+  const tail=new T.Mesh(new T.BoxGeometry(11,1.1,1.1),dkM); tail.position.x=-8; heli.add(tail);
+  const rotor=new T.Mesh(new T.BoxGeometry(34,0.3,1.4),dkM); rotor.position.y=3.4; heli.add(rotor);
+  const trotor=new T.Mesh(new T.BoxGeometry(1,6,0.3),dkM); trotor.position.set(-13,1,0); heli.add(trotor);
+  const spot=new T.Mesh(new T.ConeGeometry(7,26,14,1,true), new T.MeshBasicMaterial({color:0xfff6c0,transparent:true,opacity:.12,side:T.DoubleSide,fog:false,depthWrite:false}));
+  spot.position.y=-13; heli.add(spot);
+  const hRed=new T.Mesh(new T.SphereGeometry(0.7,6,6), new T.MeshBasicMaterial({color:0xff2020,fog:false})); hRed.position.set(7,-1.5,0); heli.add(hRed);
+  scene.add(heli);
+
+  // bird flock (instanced, flapping)
+  const birdGeo=new T.ConeGeometry(1.3,0.4,3); birdGeo.rotateX(Math.PI/2);
+  const birds=new T.InstancedMesh(birdGeo, new T.MeshBasicMaterial({color:0x0e0e16}), 30);
+  scene.add(birds);
+  const bd=[]; for(let i=0;i<30;i++) bd.push({a:Math.random()*6.28, r:50+Math.random()*40, y:130+Math.random()*70, ph:Math.random()*6.28});
+
+  // blinking red aviation lights on the tallest antennas
+  let redMat=null, redMesh=null; const talls=antPos.filter(p=>p.hh>=20);
+  if(talls.length){ redMat=new T.MeshBasicMaterial({color:0xff1414,fog:false,transparent:true});
+    redMesh=new T.InstancedMesh(new T.SphereGeometry(1.2,6,6),redMat,talls.length);
+    talls.forEach((p,i)=>{ m4.makeTranslation(p.x,p.y+p.hh+2,p.z); redMesh.setMatrixAt(i,m4); });
+    redMesh.instanceMatrix.needsUpdate=true; scene.add(redMesh); }
+
+  let t=0;
+  cityTicks.push(function(dt){ t+=dt;
+    blimp.position.set(Math.cos(t*0.028)*560, 380+Math.sin(t*0.05)*18, Math.sin(t*0.028)*560);
+    blimp.rotation.y = -t*0.028;
+    heli.position.set(Math.cos(-t*0.11+2)*320, 155+Math.sin(t*0.22)*8, Math.sin(-t*0.11+2)*320);
+    heli.rotation.y = (t*0.11) - 2; rotor.rotation.y += dt*44; trotor.rotation.x += dt*44;
+    for(let i=0;i<30;i++){ const b=bd[i]; b.a+=dt*0.45; const x=Math.cos(b.a)*b.r-120, z=Math.sin(b.a)*b.r-180;
+      const fl=1+Math.sin(t*9+b.ph)*0.5; m4.makeScale(1,1,fl); m4.setPosition(x,b.y+Math.sin(t*2+b.ph)*3,z); birds.setMatrixAt(i,m4); }
+    birds.instanceMatrix.needsUpdate=true;
+    if(redMat) redMat.opacity = (Math.sin(t*3.4)>0)?1:0.12;
+  });
 })();
 
 const STREET_Y = 0.7;
@@ -761,7 +834,8 @@ function updateHUD(){ el.hp.style.width=player.hp+'%'; el.web.style.width=player
 
 /* ============================ LOOP ============================ */
 let frameCount=0;
-function frame(){ requestAnimationFrame(frame); const dt=clock.getDelta(); if(started) update(dt); renderer.render(scene,camera); }
+function frame(){ requestAnimationFrame(frame); const dt=clock.getDelta(); if(started) update(dt);
+  if(composer) composer.render(); else renderer.render(scene,camera); }
 respawn(); camera.position.set(0,260,160); camera.lookAt(0,140,0);
 const loadEl=document.getElementById('loading'); if(loadEl){ loadEl.classList.add('fade'); setTimeout(()=>loadEl.remove(),600); }
 drawMinimap(); frame();
