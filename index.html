@@ -72,16 +72,11 @@
   <div class="note">Original red-and-blue web-slinger — not affiliated with Marvel or Insomniac. Move the mouse to look; click to lock the pointer. Best in Chrome. Press <kbd>Space</kbd> right away — you start on a rooftop.</div>
 </div>
 
-<!-- Libraries (CDN): Three.js, simplex-noise, and postprocessing passes for bloom -->
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/simplex-noise/2.4.0/simplex-noise.min.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/MaskPass.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
-<script defer src="game.js"></script>
+<!-- Failsafe: never let the loading overlay hang forever, even if a script fails to load -->
+<script>setTimeout(function(){var l=document.getElementById('loading');if(l)l.remove();},10000);</script>
+<!-- Libraries (CDN): only Three.js + simplex-noise are required (both from the reliable cdnjs) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/simplex-noise/2.4.0/simplex-noise.min.js"></script>
+<script src="game.js"></script>
 </body>
 </html>

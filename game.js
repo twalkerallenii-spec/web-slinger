@@ -598,14 +598,14 @@ function findAnchor(preferHigh){
   const fwd = camForwardFlat().clone();
   const hv = _v3.set(player.vel.x,0,player.vel.z);
   if(hv.length()>8){ fwd.lerp(hv.normalize(),0.55).normalize(); }
-  let best=null, bestScore=-1e9; const maxRope=150;
+  let best=null, bestScore=-1e9; const maxRope=180;
   for(const b of buildings){
     const ax=Math.max(b.x-b.w/2,Math.min(b.x+b.w/2, player.pos.x+fwd.x*20));
     const az=Math.max(b.z-b.d/2,Math.min(b.z+b.d/2, player.pos.z+fwd.z*20));
     const ay=b.h; if(ay<player.pos.y+6) continue;
     const dx=ax-player.pos.x, dy=ay-player.pos.y, dz=az-player.pos.z;
     const dist=Math.hypot(dx,dy,dz); if(dist<14||dist>maxRope) continue;
-    const ahead=(dx*fwd.x+dz*fwd.z)/(Math.hypot(dx,dz)||1); if(ahead<-0.15) continue;
+    const ahead=(dx*fwd.x+dz*fwd.z)/(Math.hypot(dx,dz)||1); if(ahead<-0.4) continue;
     const score=ahead*40 + (preferHigh?dy*1.2:dy*0.5) - Math.abs(dist-78)*0.32;
     if(score>bestScore){ bestScore=score; best={x:ax,y:ay,z:az,dist}; }
   }
@@ -622,7 +622,9 @@ function bumpCombo(pts,label){ player.combo++; player.comboT=2.2; player.score+=
   comboEl.textContent=(label||'STYLE')+'  x'+player.combo; comboEl.style.opacity='1'; }
 
 /* ============================ SWING / MOVEMENT ============================ */
-function startSwing(){ const a=findAnchor(false); if(!a) return false;
+function startSwing(allowVirtual){ let a=findAnchor(false);
+  if(!a){ if(allowVirtual===false) return false;            // mid-air: never dead-fail — anchor a virtual skyhook ahead
+    const f=camForwardFlat(); a={ x:player.pos.x+f.x*40, y:player.pos.y+74, z:player.pos.z+f.z*40, dist:Math.hypot(40,74) }; }
   player.anchor.set(a.x,a.y,a.z); player.ropeLen=a.dist*0.92; player.state='swing'; player.swingHand*=-1; player.airTime=0;
   sndThwip(); return true; }
 function releaseSwing(boost){ player.state='air';
@@ -717,8 +719,8 @@ function update(dt){
     else { player.vel.y+=GRAV*dt;
       const toA=_v.copy(player.anchor).sub(player.pos); toA.normalize();
       const tang=_v2.copy(player.vel).addScaledVector(toA,-player.vel.dot(toA));
-      if(tang.length()>0.1){ tang.normalize(); player.vel.addScaledVector(tang,22*dt); }
-      player.vel.addScaledVector(steerR,inR*16*dt);
+      if(tang.length()>0.1){ tang.normalize(); player.vel.addScaledVector(tang,26*dt); }
+      player.vel.addScaledVector(steerR,inR*22*dt);
       if(keys['w']) player.ropeLen=Math.max(12,player.ropeLen-26*dt);
       if(keys['s']) player.ropeLen=Math.min(150,player.ropeLen+26*dt);
       player.pos.addScaledVector(player.vel,dt);
@@ -739,14 +741,14 @@ function update(dt){
     player.vel.x*=0.86; player.vel.z*=0.86;
     const hs=Math.hypot(player.vel.x,player.vel.z); if(hs>maxSp){ player.vel.x*=maxSp/hs; player.vel.z*=maxSp/hs; }
     player.vel.y=0;
-    if(keys[' ']||mouseDownL){ if(!startSwing()){ player.vel.y=26; player.state='air'; } }
+    if(keys[' ']||mouseDownL){ if(!startSwing(false)){ player.vel.y=28; player.state='air'; } }
     player.pos.addScaledVector(player.vel,dt);
     const bb=buildingAt(player.pos.x,player.pos.z); const floorY=bb?bb.h:STREET_Y;
     if(player.pos.y>floorY+R*0.5+0.5) player.state='air'; else player.pos.y=floorY+R*0.2;
     resolveCollisions(); if(keys['f']) attack();
   } else {
     player.airTime+=dt; player.vel.y+=GRAV*dt;
-    player.vel.x+=(steerF.x*inF+steerR.x*inR)*40*dt; player.vel.z+=(steerF.z*inF+steerR.z*inR)*40*dt;
+    player.vel.x+=(steerF.x*inF+steerR.x*inR)*60*dt; player.vel.z+=(steerF.z*inF+steerR.z*inR)*60*dt;
     player.vel.x*=0.995; player.vel.z*=0.995; lastFallSpeed=player.vel.y;
     player.pos.addScaledVector(player.vel,dt);
     if(keys['e']){ const side=resolveCollisions(); if(side){ player.state='wall'; player.wallNormal.set(side.nx,0,side.nz).normalize(); } }
@@ -813,7 +815,7 @@ function updateCamera(dt){ const speed=player.vel.length();
   const dist=16+Math.min(speed*0.12,10), height=5+Math.min(speed*0.03,4);
   const dir=new T.Vector3(Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch));
   const desired=_v.copy(player.pos).addScaledVector(dir,dist); desired.y+=height; if(desired.y<3) desired.y=3;
-  const lerp=1-Math.pow(0.001,dt); camPos.lerp(desired,Math.min(1,lerp*1.6)); camera.position.copy(camPos);
+  const lerp=1-Math.pow(0.001,dt); camPos.lerp(desired,Math.min(1,lerp*2.1)); camera.position.copy(camPos);
   const ahead=_v2.copy(player.facing).multiplyScalar(Math.min(speed*0.15,8));
   camTgt.lerp(_v3.copy(player.pos).add(ahead).add(new T.Vector3(0,2.5,0)),Math.min(1,lerp*2)); camera.lookAt(camTgt);
   const targetFov=62+Math.min(speed*0.22,26); camera.fov+=(targetFov-camera.fov)*Math.min(1,dt*4); camera.updateProjectionMatrix();
@@ -861,8 +863,11 @@ function updateHUD(){ el.hp.style.width=player.hp+'%'; el.web.style.width=player
 
 /* ============================ LOOP ============================ */
 let frameCount=0;
+let __firstFrame=false;
 function frame(){ requestAnimationFrame(frame); const dt=clock.getDelta(); if(started) update(dt);
-  if(composer) composer.render(); else renderer.render(scene,camera); }
+  if(composer) composer.render(); else renderer.render(scene,camera);
+  if(!__firstFrame){ __firstFrame=true; const l=document.getElementById('loading'); if(l){ l.classList.add('fade'); setTimeout(()=>{ if(l.parentNode) l.remove(); },500); } }
+}
 respawn(); camera.position.set(0,260,160); camera.lookAt(0,140,0);
 const loadEl=document.getElementById('loading'); if(loadEl){ loadEl.classList.add('fade'); setTimeout(()=>loadEl.remove(),600); }
 drawMinimap(); frame();
