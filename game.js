@@ -495,7 +495,7 @@ const enemyBody = new T.MeshStandardMaterial({ color:0x394b2a, roughness:.8 });
 const enemyHead = new T.MeshStandardMaterial({ color:0xc79b78, roughness:.7 });
 function makeEnemy(x,z,crime){
   const g = new T.Group();
-  g.add(Object.assign(new T.Mesh(new T.CylinderGeometry(0.9,1.1,3.4,8), enemyBody),{position:new T.Vector3(0,1.7,0)}));
+  const body = new T.Mesh(new T.CylinderGeometry(0.9,1.1,3.4,8), enemyBody); body.position.y=1.7; g.add(body);
   const h = new T.Mesh(new T.SphereGeometry(0.7,10,8), enemyHead); h.position.y=3.8; g.add(h);
   g.position.set(x,STREET_Y,z);
   g.userData = { alive:true, wanderT:Math.random()*10, dir:Math.random()*Math.PI*2, crime:!!crime };
@@ -863,21 +863,28 @@ function updateHUD(){ el.hp.style.width=player.hp+'%'; el.web.style.width=player
 
 /* ============================ LOOP ============================ */
 let frameCount=0;
-let __firstFrame=false;
-function frame(){ requestAnimationFrame(frame); const dt=clock.getDelta(); if(started) update(dt);
-  if(composer) composer.render(); else renderer.render(scene,camera);
+let __firstFrame=false, __errLogged=false;
+function frame(){ requestAnimationFrame(frame);
+  try{
+    const dt=clock.getDelta(); if(started) update(dt);
+    if(composer) composer.render(); else renderer.render(scene,camera);
+  }catch(err){ if(!__errLogged){ __errLogged=true; console.error('[web-slinger] frame error:', err); } }
   if(!__firstFrame){ __firstFrame=true; const l=document.getElementById('loading'); if(l){ l.classList.add('fade'); setTimeout(()=>{ if(l.parentNode) l.remove(); },500); } }
 }
-respawn(); camera.position.set(0,260,160); camera.lookAt(0,140,0);
-const loadEl=document.getElementById('loading'); if(loadEl){ loadEl.classList.add('fade'); setTimeout(()=>loadEl.remove(),600); }
-drawMinimap(); frame();
 
-document.getElementById('goBtn').addEventListener('click', ()=>{
-  const s=document.getElementById('start'); s.classList.add('fade'); setTimeout(()=>{ if(s.parentNode) s.remove(); },550);
-  started=true; clock.getDelta(); initAudio(); canvas.requestPointerLock();
+/* Wire the Enter button + input FIRST so nothing downstream can leave the button dead. */
+const goBtn = document.getElementById('goBtn');
+if(goBtn) goBtn.addEventListener('click', ()=>{
+  const s=document.getElementById('start'); if(s){ s.classList.add('fade'); setTimeout(()=>{ if(s.parentNode) s.remove(); },550); }
+  started=true; clock.getDelta();
+  try{ initAudio(); }catch(e){}
+  try{ canvas.requestPointerLock(); }catch(e){}
   crimeCooldown=6; toast('Hold SPACE or LEFT-CLICK to swing');
 });
 addEventListener('blur', ()=>{ mouseDownL=mouseDownR=false; for(const k in keys) keys[k]=false; });
+
+respawn(); camera.position.set(0,260,160); camera.lookAt(0,140,0);
+drawMinimap(); frame();
 
 /* ============================ WORLD BUILDER (in-game block editor) ============================ */
 /* Inspired by 3dWorldBuilder — place / resize / delete building blocks, saved to localStorage
