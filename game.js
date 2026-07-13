@@ -18,7 +18,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
 renderer.setSize(innerWidth, innerHeight);
 renderer.outputEncoding = T.sRGBEncoding;
 renderer.toneMapping = T.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+renderer.toneMappingExposure = 1.14;
 
 const scene = new T.Scene();
 scene.background = new T.Color(0x2a1533);
@@ -48,7 +48,7 @@ addEventListener('resize', ()=>{
 /* ============================ LIGHTING ============================ */
 scene.add(new T.HemisphereLight(0xffb98a, 0x241031, 0.85));
 scene.add(new T.AmbientLight(0x5a4a7a, 0.5));
-const sun = new T.DirectionalLight(0xffd9a0, 1.15); sun.position.set(-400, 320, -260); scene.add(sun);
+const sun = new T.DirectionalLight(0xffcf96, 1.32); sun.position.set(-400, 320, -260); scene.add(sun);
 const rim = new T.DirectionalLight(0x6ea8ff, 0.5); rim.position.set(380, 220, 320); scene.add(rim);
 
 /* ============================ SKY DOME ============================ */
@@ -163,19 +163,44 @@ function makeBuildingMat(arch, t){
   return new T.MeshStandardMaterial({ map:t, emissiveMap:t, emissive:0xbfe0ff, emissiveIntensity:0.42, color:0x515f78, roughness:0.5, metalness:0.32, envMap:ENV, envMapIntensity:0.5 });
 }
 const tankPos=[], acPos=[], antPos=[], neonList=[];
+// kept for the World Builder (a handful of blocks — clone cost is negligible there)
 function pickTex(arch,x,z){ const pool=TEXPOOL[arch]; return pool[(Math.abs((x*5+z*3))|0)%pool.length].clone(); }
+
+/* Shared per-archetype materials (a few colour/texture variants) — no per-building clones,
+   so the whole city uses ~12 materials instead of hundreds. This is the big load-time win. */
+Object.keys(TEXPOOL).forEach(a=>TEXPOOL[a].forEach(t=>{ t.wrapS=t.wrapT=T.RepeatWrapping; t.repeat.set(1,1); }));
+const MATS = {};
+['glass','office','brick','deco'].forEach(arch=>{
+  const list=[];
+  TEXPOOL[arch].forEach(t=>{ list.push(makeBuildingMat(arch,t));
+    const m2=makeBuildingMat(arch,t); m2.color.offsetHSL(0,0,(arch==='brick')?-0.06:0.06); list.push(m2); });
+  MATS[arch]=list;
+});
+function matFor(arch,x,z){ const l=MATS[arch]; return l[(Math.abs((x*7+z*13))|0)%l.length]; }
+
+/* Box geometry with window UVs baked to world scale → correct window size with a shared material. */
+function makeBuildingGeo(w,d,h,cell){
+  const g=new T.BoxGeometry(w,h,d); g.translate(0,h/2,0);
+  const a=g.attributes.uv.array, su=d/cell, su2=w/cell, sv=h/cell;
+  for(let i=0;i<4;i++){ a[i*2]*=su;  a[i*2+1]*=sv; }     // +X face (width = depth)
+  for(let i=4;i<8;i++){ a[i*2]*=su;  a[i*2+1]*=sv; }     // -X face
+  for(let i=16;i<20;i++){ a[i*2]*=su2; a[i*2+1]*=sv; }   // +Z face (width = w)
+  for(let i=20;i<24;i++){ a[i*2]*=su2; a[i*2+1]*=sv; }   // -Z face
+  g.attributes.uv.needsUpdate=true; return g;
+}
+function bbox(x,base,z,w,d,h,mat,cell){ const m=new T.Mesh(makeBuildingGeo(w,d,h,cell),mat); m.position.set(x,base,z); scene.add(m); return m; }
+
 function addBuilding(x,z,w,d,h,arch){
-  const t = pickTex(arch,x,z); t.needsUpdate=true; const rep=(arch==='brick')?6:8; t.repeat.set(Math.max(1,w/rep), Math.max(1,h/rep));
-  const mat = makeBuildingMat(arch, t);
+  const mat=matFor(arch,x,z), cell=(arch==='brick')?6:8;
   if(arch==='deco' && h>150){                                   // art-deco ziggurat setbacks
     const h1=h*0.56, h2=h*0.28, h3=h*0.16;
-    box(x,0,z,w,h1,d,mat); box(x,h1,z,w*0.72,h2,d*0.72,mat); box(x,h1+h2,z,w*0.5,h3,d*0.5,mat);
+    bbox(x,0,z,w,d,h1,mat,cell); bbox(x,h1,z,w*0.72,d*0.72,h2,mat,cell); bbox(x,h1+h2,z,w*0.5,d*0.5,h3,mat,cell);
     const cr=new T.Mesh(new T.ConeGeometry(Math.min(w,d)*0.22,28,6),spireMat); cr.position.set(x,h,z); scene.add(cr);
     antPos.push({x,z,y:h+14,hh:16});
   } else if((arch==='glass'||arch==='office') && h>170){         // modern upper setback
-    const h1=h*0.82; box(x,0,z,w,h1,d,mat); box(x,h1,z,w*0.82,h-h1,d*0.82,mat);
+    const h1=h*0.82; bbox(x,0,z,w,d,h1,mat,cell); bbox(x,h1,z,w*0.82,d*0.82,h-h1,mat,cell);
     if(h>250) antPos.push({x,z,y:h,hh:26});
-  } else { box(x,0,z,w,h,d,mat); if(h>70 && Math.random()<0.3) box(x,h,z,w*0.5,6+Math.random()*10,d*0.5,mat); }
+  } else { bbox(x,0,z,w,d,h,mat,cell); if(h>70 && Math.random()<0.3) bbox(x,h,z,w*0.5,d*0.5,6+Math.random()*10,mat,cell); }
   if((arch==='brick'||arch==='office') && Math.random()<0.7) tankPos.push({x:x+(Math.random()-.5)*w*.3, z:z+(Math.random()-.5)*d*.3, y:h});
   acPos.push({x:x+(Math.random()-.5)*w*.4, z:z+(Math.random()-.5)*d*.4, y:h});
   if(Math.random()<0.4) acPos.push({x:x+(Math.random()-.5)*w*.4, z:z+(Math.random()-.5)*d*.4, y:h});
