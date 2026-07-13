@@ -14,6 +14,14 @@ html,body { width:100%; height:100%; overflow:hidden; background:#12060f; font-f
 #speedbig { font-size:40px; font-weight:800; letter-spacing:-1px; color:#fff; }
 #speedbig small { font-size:14px; font-weight:600; color:#9fb4d8; margin-left:4px; }
 
+#obj { top:96px; right:18px; text-align:right; font-size:12px; line-height:1.5; }
+#objtitle { color:#ffd23f; font-weight:800; font-size:14px; letter-spacing:1px; }
+#objdist { color:#9fe0ff; font-weight:600; }
+
+#minimap { position:fixed; right:16px; bottom:16px; width:150px; height:196px; z-index:10;
+           border-radius:12px; border:1px solid rgba(255,255,255,.18);
+           box-shadow:0 6px 20px rgba(0,0,0,.5); background:rgba(8,10,22,.5); backdrop-filter:blur(4px); }
+
 #combo { position:fixed; top:33%; left:50%; transform:translateX(-50%); font-size:34px; font-weight:800;
          color:#ffd23f; text-shadow:0 3px 14px rgba(0,0,0,.9); opacity:0; z-index:11; pointer-events:none;
          transition:opacity .25s; letter-spacing:.5px; }

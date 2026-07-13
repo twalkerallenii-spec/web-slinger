@@ -21,12 +21,24 @@ python3 -m http.server 8000
 |---|---|
 | **Mouse** | Look (click to lock pointer) |
 | **W A S D** | Steer (air, ground, wall) |
-| **Space / Left-Click** (hold) | Fire web & swing — release at the bottom of the arc to launch |
-| **Shift / Right-Click** | Web-zip boost toward a high point |
+| **Space / Left-Click** (hold) | Fire web & swing — release at the **bottom of the arc** for a **PERFECT** boost |
+| **Shift / Right-Click** | Web-zip toward a surface |
 | **W** while swinging | Reel in (tightens the arc, gains speed) · **S** lets out |
-| **F** | Punch / dive-kick enemies |
+| **F** | Punch · **G** | Heavy kick (launches thug away) |
+| **Q** | Web-strike — yank the nearest thug flying through the air |
 | **E** | Cling to a wall |
+| **1–4 / T** | Swap between four suits (Classic, Noir, Crimson, Cyber) |
 | **R** | Respawn on a rooftop · **H** toggle help |
+
+## The map — a geographically-real Manhattan
+The city is built to the **real island's proportions** (~5.8:1 long, widest near 14th St, narrowing to the tips) with:
+- The **avenue (N–S) / cross-street (E–W) grid**
+- **Central Park** (59th–110th) with grass, trees and a pond — no anchors, so zip across it
+- The **Hudson & East rivers** on both sides (fall in → respawn)
+- **Financial District** super-talls at the south tip + a **Midtown** tower cluster below the park
+- A **minimap** (bottom-right), **crime beacons** to chase, and web-thwip / wind audio
+
+> This grounds the layout in public geographic fact rather than copying Insomniac's copyrighted level.
 
 ## The physics (how the swing works)
 Position-based pendulum, the standard game approach:

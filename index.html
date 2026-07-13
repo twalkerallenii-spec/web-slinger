@@ -16,6 +16,7 @@
   <div style="margin-top:10px">TOKENS <b id="tok">0</b> / <span id="toktot">0</span></div>
   <div>TAKEDOWNS <b id="kos">0</b></div>
   <div>STYLE <b id="score">0</b></div>
+  <div>SUIT <b id="suit">Classic</b></div>
 </div>
 
 <div id="speedo" class="hud">
@@ -24,6 +25,13 @@
   <div id="statelbl">GROUNDED</div>
 </div>
 
+<div id="obj" class="hud">
+  <div id="objtitle">FREE ROAM</div>
+  <div id="objdist"></div>
+</div>
+
+<canvas id="minimap"></canvas>
+
 <div id="combo"></div>
 <div id="crosshair"></div>
 <div id="toast"></div>
@@ -31,9 +39,10 @@
 <div id="help" class="hud">
   <h4>CONTROLS</h4>
   <div><kbd>MOUSE</kbd> look &nbsp; <kbd>W A S D</kbd> steer</div>
-  <div><kbd>SPACE / LMB</kbd> hold to shoot &amp; swing, release to let go</div>
-  <div><kbd>SHIFT / RMB</kbd> web-zip boost &nbsp; <kbd>W</kbd>(swinging) reel in</div>
-  <div><kbd>F</kbd> punch / dive-kick &nbsp; <kbd>E</kbd> cling wall &nbsp; <kbd>R</kbd> respawn</div>
+  <div><kbd>SPACE / LMB</kbd> hold swing — release at arc bottom for <b>PERFECT</b></div>
+  <div><kbd>SHIFT / RMB</kbd> web-zip &nbsp; <kbd>W</kbd>(swing) reel in for boost</div>
+  <div><kbd>F</kbd> punch &nbsp; <kbd>G</kbd> heavy kick &nbsp; <kbd>Q</kbd> web-strike thug</div>
+  <div><kbd>E</kbd> cling wall &nbsp; <kbd>1-4/T</kbd> swap suit &nbsp; <kbd>R</kbd> respawn</div>
   <div><kbd>H</kbd> hide help</div>
 </div>
 
@@ -44,7 +53,8 @@
   <div class="keys">
     <div>Hold <kbd>Space</kbd> or <kbd>Left-Click</kbd> to fire a web and swing. <b>Let go at the bottom of the arc</b> to rocket forward.</div>
     <div><kbd>Shift</kbd> / <kbd>Right-Click</kbd> zips you up toward a high point — chain it with swings for height.</div>
-    <div><kbd>W A S D</kbd> steer in the air &amp; on the ground · <kbd>E</kbd> to cling to walls · <kbd>F</kbd> to attack.</div>
+    <div><kbd>W A S D</kbd> steer · <kbd>E</kbd> wall-cling · <kbd>F</kbd> punch · <kbd>G</kbd> heavy kick · <kbd>Q</kbd> web-strike thugs into the air · <kbd>1-4</kbd> swap suits.</div>
+    <div>Stop the <b>crimes</b> marked by red beacons across a geographically-real Manhattan — Financial District, Midtown, Central Park &amp; the rivers.</div>
   </div>
   <div class="note">Original red-and-blue web-slinger — not affiliated with Marvel or Insomniac. Move the mouse to look; click to lock the pointer. Best in Chrome. Press <kbd>Space</kbd> right away — you start on a rooftop.</div>
 </div>
