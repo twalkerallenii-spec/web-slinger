@@ -1,0 +1,10 @@
+Textures in this folder are downscaled (256px JPG) samples from:
+
+  Screaming Brain Studios — "Tiny Texture Pack" 1 & 2 (512x512)
+  Released as CC0 / Public Domain (https://screamingbrainstudios.com , itch.io)
+
+CC0 means free to use, modify, and redistribute — including commercially —
+with no attribution required. This credit is included as a courtesy.
+
+Files: brick1, brick2 (Bricks), plaster, stone (facades), grass (Central Park),
+wood + roof (rooftop water towers), metal (AC units), tile (streets).
