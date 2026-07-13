@@ -60,33 +60,37 @@ const rim = new T.DirectionalLight(0x6ea8ff, 0.5); rim.position.set(380, 220, 32
   spr.scale.set(800,800,1); spr.position.set(-1700, 420, -2100); scene.add(spr);
 })();
 
-/* ============================ FACADE TEXTURES (noise-detailed) ============================ */
-function makeFacade(seed){
-  const cv = document.createElement('canvas'); cv.width = 128; cv.height = 256;
-  const g = cv.getContext('2d');
-  const base = 18 + (seed*37 % 26);
-  g.fillStyle = `rgb(${base},${base+6},${base+18})`; g.fillRect(0,0,128,256);
+/* ============================ BUILDING TEXTURES (archetype window grids) ============================ */
+function clampB(v){ return v<0?0:v>255?255:v; }
+function makeWindowTex(o){
+  const cv = document.createElement('canvas'); cv.width = 128; cv.height = 256; const g = cv.getContext('2d');
+  const b = o.base; g.fillStyle = `rgb(${b[0]},${b[1]},${b[2]})`; g.fillRect(0,0,128,256);
   const img = g.getImageData(0,0,128,256), d = img.data;
   for(let y=0;y<256;y++) for(let x=0;x<128;x++){
-    const n = snoise(x*0.06 + seed*10, y*0.06);
-    const streak = snoise(x*0.5, y*0.01 + seed) * 0.4;
-    const shade = (n*10 + streak*18)|0; const i = (y*128+x)*4;
-    d[i]=Math.max(0,d[i]+shade); d[i+1]=Math.max(0,d[i+1]+shade); d[i+2]=Math.max(0,d[i+2]+shade);
+    const n = snoise(x*0.06 + o.seed*9, y*0.06)*o.grime + snoise(x*0.5, y*0.01 + o.seed)*o.streak;
+    const s = n|0; const i = (y*128+x)*4;
+    d[i]=clampB(d[i]+s); d[i+1]=clampB(d[i+1]+s); d[i+2]=clampB(d[i+2]+s);
   }
   g.putImageData(img,0,0);
-  const cols = 6, rows = 12, mw = 128/cols, mh = 256/rows;
+  const cols=o.cols, rows=o.rows, mw=128/cols, mh=256/rows, pad=o.pad;
   for(let y=0;y<rows;y++) for(let x=0;x<cols;x++){
-    const lit = ((x*7+y*13+seed*3) % 10) < 5;
-    if(lit){ const warm = ((x+y+seed)%3)===0;
-      g.fillStyle = warm ? `rgba(255,${190+((x*y)%50)},120,1)` : `rgba(150,200,255,.95)`;
-    } else { g.fillStyle = 'rgba(10,14,26,1)'; }
-    g.fillRect(x*mw+2, y*mh+3, mw-5, mh-6);
-    g.fillStyle = 'rgba(255,255,255,.08)'; g.fillRect(x*mw+2, y*mh+3, mw-5, 2);
+    const lit = ((x*7+y*13+o.seed*5) % 10) < o.litProb;
+    let col;
+    if(lit){ col = ((x+y+o.seed)%o.warmMod)===0 ? o.warm : o.cool; } else col = o.dark;
+    g.fillStyle = col; g.fillRect(x*mw+pad, y*mh+pad, mw-pad*2, mh-pad*2);
+    g.fillStyle = 'rgba(255,255,255,.06)'; g.fillRect(x*mw+pad, y*mh+pad, mw-pad*2, 1.5);   // sill glint
   }
-  const tex = new T.CanvasTexture(cv); tex.wrapS = tex.wrapT = T.RepeatWrapping; tex.anisotropy = 2;
-  return tex;
+  const t = new T.CanvasTexture(cv); t.wrapS=t.wrapT=T.RepeatWrapping; t.anisotropy=2; return t;
 }
-const FACADES = []; for(let i=0;i<6;i++) FACADES.push(makeFacade(i+1));
+const TEXPOOL = {
+  glass:[ makeWindowTex({base:[20,30,44],cool:'rgba(120,180,235,.95)',warm:'rgba(185,218,255,.9)',dark:'rgba(13,21,36,1)',litProb:6,warmMod:4,cols:7,rows:16,pad:1.5,seed:1,grime:6,streak:8}),
+          makeWindowTex({base:[16,34,40],cool:'rgba(110,205,215,.95)',warm:'rgba(165,232,240,.9)',dark:'rgba(10,24,28,1)',litProb:6,warmMod:5,cols:7,rows:15,pad:1.5,seed:2,grime:6,streak:8}) ],
+  office:[ makeWindowTex({base:[40,44,56],cool:'rgba(160,205,255,.92)',warm:'rgba(255,220,150,.9)',dark:'rgba(15,19,29,1)',litProb:5,warmMod:3,cols:6,rows:13,pad:2,seed:3,grime:9,streak:12}),
+           makeWindowTex({base:[34,36,46],cool:'rgba(150,195,240,.9)',warm:'rgba(255,210,140,.9)',dark:'rgba(13,16,25,1)',litProb:5,warmMod:3,cols:6,rows:14,pad:2,seed:4,grime:9,streak:12}) ],
+  brick:[ makeWindowTex({base:[86,52,42],cool:'rgba(255,205,140,.95)',warm:'rgba(255,182,112,.95)',dark:'rgba(30,18,16,1)',litProb:5,warmMod:2,cols:5,rows:12,pad:2.5,seed:5,grime:12,streak:6}),
+          makeWindowTex({base:[70,44,40],cool:'rgba(255,200,150,.95)',warm:'rgba(255,172,122,.95)',dark:'rgba(26,16,14,1)',litProb:5,warmMod:2,cols:5,rows:11,pad:2.5,seed:6,grime:12,streak:6}) ],
+  deco:[ makeWindowTex({base:[74,66,52],cool:'rgba(255,225,170,.9)',warm:'rgba(255,205,150,.9)',dark:'rgba(28,24,18,1)',litProb:5,warmMod:2,cols:6,rows:14,pad:2,seed:7,grime:10,streak:8}) ],
+};
 
 /* ============================ MANHATTAN ISLAND (real proportions) ============================ */
 /* Long axis = Z. South tip (Battery / Financial District) = -Z, North (Inwood) = +Z.
@@ -100,9 +104,10 @@ function islandHalfW(z){
   return 0;
 }
 function inIsland(x,z){ return Math.abs(x) < islandHalfW(z); }
-// Central Park: 59th-110th St, west-of-centre rectangle
-const PARK = { x0:-72, x1:78, z0:180, z1:560 };
+// Central Park: 59th-110th St — a long, narrow rectangle (~5:1, real proportions), centre-west
+const PARK = { x0:-48, x1:48, z0:110, z1:600 };
 function inPark(x,z){ return x>PARK.x0 && x<PARK.x1 && z>PARK.z0 && z<PARK.z1; }
+const PARK_CX = (PARK.x0+PARK.x1)/2;
 
 /* WATER (Hudson + East rivers + harbour) */
 (function water(){
@@ -123,84 +128,213 @@ function inPark(x,z){ return x>PARK.x0 && x<PARK.x1 && z>PARK.z0 && z<PARK.z1; }
 })();
 
 /* ============================ CITY GENERATION ============================ */
+/* Dusk-sky reflection probe for glass buildings */
+let ENV = null;
+(function(){ try{
+  const rt = new T.WebGLCubeRenderTarget(128, { generateMipmaps:true, minFilter:T.LinearMipmapLinearFilter });
+  const cc = new T.CubeCamera(1, 5000, rt); cc.position.set(0, 240, 0); cc.update(renderer, scene); ENV = rt.texture;
+}catch(e){} })();
+
 const buildings = [];
 const boxGeo = new T.BoxGeometry(1,1,1); boxGeo.translate(0, 0.5, 0);
-const roofMat = new T.MeshStandardMaterial({ color:0x241a30, roughness:.9, metalness:.1 });
 const spireMat = new T.MeshStandardMaterial({ color:0x2b2140, roughness:.6, metalness:.3, emissive:0x140a20 });
-
-function addBuilding(x,z,w,d,h){
-  const fi = (Math.abs((x*3+z*7))|0) % FACADES.length;
-  const facTex = FACADES[fi].clone(); facTex.needsUpdate = true;
-  facTex.repeat.set(Math.max(1, w/9), Math.max(1, h/9));
-  const tint = new T.Color().setHSL(0.62 + Math.random()*0.12, 0.25, 0.35 + Math.random()*0.1);
-  const mat = new T.MeshStandardMaterial({ map:facTex, emissiveMap:facTex, emissive:0xffffff,
-    emissiveIntensity:0.55, color:tint, roughness:.78, metalness:.15 });
-  const mesh = new T.Mesh(boxGeo, mat); mesh.position.set(x,0,z); mesh.scale.set(w,h,d); scene.add(mesh);
-  const roof = new T.Mesh(boxGeo, roofMat); roof.position.set(x,h,z); roof.scale.set(w*1.02,2.5,d*1.02); scene.add(roof);
-  // rooftop clutter
-  if(Math.random()<0.5){ const t = new T.Mesh(boxGeo, roofMat); const tw = 3+Math.random()*5;
-    t.position.set(x+(Math.random()-.5)*w*.4, h+2, z+(Math.random()-.5)*d*.4); t.scale.set(tw,5+Math.random()*8,tw); scene.add(t); }
-  // iconic tapered crown/antenna on supertalls
-  if(h>270){
-    const crown = new T.Mesh(new T.ConeGeometry(Math.min(w,d)*0.42, 26, 6), spireMat);
-    crown.position.set(x, h+13, z); scene.add(crown);
-    const ant = new T.Mesh(new T.CylinderGeometry(0.5,0.8,22,5), spireMat); ant.position.set(x, h+30, z); scene.add(ant);
-  }
+function box(x,y,z,w,h,d,mat){ const m=new T.Mesh(boxGeo,mat); m.position.set(x,y,z); m.scale.set(w,h,d); scene.add(m); return m; }
+function makeBuildingMat(arch, t){
+  if(arch==='glass') return new T.MeshStandardMaterial({ map:t, emissiveMap:t, emissive:0x9fc4ff, emissiveIntensity:0.30, color:0x24445a, metalness:0.85, roughness:0.14, envMap:ENV, envMapIntensity:0.95 });
+  if(arch==='brick') return new T.MeshStandardMaterial({ map:t, emissiveMap:t, emissive:0xffcf8a, emissiveIntensity:0.5, color:0x7a4a38, roughness:0.94, metalness:0.02 });
+  if(arch==='deco')  return new T.MeshStandardMaterial({ map:t, emissiveMap:t, emissive:0xffe0b0, emissiveIntensity:0.4, color:0x9a8b70, roughness:0.66, metalness:0.18, envMap:ENV, envMapIntensity:0.35 });
+  return new T.MeshStandardMaterial({ map:t, emissiveMap:t, emissive:0xbfe0ff, emissiveIntensity:0.42, color:0x515f78, roughness:0.5, metalness:0.32, envMap:ENV, envMapIntensity:0.5 });
+}
+const tankPos=[], acPos=[], antPos=[], neonList=[];
+function pickTex(arch,x,z){ const pool=TEXPOOL[arch]; return pool[(Math.abs((x*5+z*3))|0)%pool.length].clone(); }
+function addBuilding(x,z,w,d,h,arch){
+  const t = pickTex(arch,x,z); t.needsUpdate=true; const rep=(arch==='brick')?6:8; t.repeat.set(Math.max(1,w/rep), Math.max(1,h/rep));
+  const mat = makeBuildingMat(arch, t);
+  if(arch==='deco' && h>150){                                   // art-deco ziggurat setbacks
+    const h1=h*0.56, h2=h*0.28, h3=h*0.16;
+    box(x,0,z,w,h1,d,mat); box(x,h1,z,w*0.72,h2,d*0.72,mat); box(x,h1+h2,z,w*0.5,h3,d*0.5,mat);
+    const cr=new T.Mesh(new T.ConeGeometry(Math.min(w,d)*0.22,28,6),spireMat); cr.position.set(x,h,z); scene.add(cr);
+    antPos.push({x,z,y:h+14,hh:16});
+  } else if((arch==='glass'||arch==='office') && h>170){         // modern upper setback
+    const h1=h*0.82; box(x,0,z,w,h1,d,mat); box(x,h1,z,w*0.82,h-h1,d*0.82,mat);
+    if(h>250) antPos.push({x,z,y:h,hh:26});
+  } else { box(x,0,z,w,h,d,mat); }
+  if((arch==='brick'||arch==='office') && Math.random()<0.7) tankPos.push({x:x+(Math.random()-.5)*w*.3, z:z+(Math.random()-.5)*d*.3, y:h});
+  acPos.push({x:x+(Math.random()-.5)*w*.4, z:z+(Math.random()-.5)*d*.4, y:h});
+  if(Math.random()<0.4) acPos.push({x:x+(Math.random()-.5)*w*.4, z:z+(Math.random()-.5)*d*.4, y:h});
+  if(h>150 && z>-170 && z<200 && Math.random()<0.4) neonList.push({x,z,y:22+Math.random()*(h-46),w,d});
   buildings.push({ x, z, w, d, h });
 }
-function buildingAt(x, z){
-  for(const b of buildings){ if(x>b.x-b.w/2 && x<b.x+b.w/2 && z>b.z-b.d/2 && z<b.z+b.d/2) return b; }
-  return null;
-}
+function buildingAt(x, z){ for(const b of buildings){ if(x>b.x-b.w/2 && x<b.x+b.w/2 && z>b.z-b.d/2 && z<b.z+b.d/2) return b; } return null; }
+function heightFor(x,z){ const r=Math.random();
+  if(z < -620) return 200 + r*220;                        // Financial District super-talls
+  if(z > -160 && z < 190) return 160 + r*190;             // Midtown cluster
+  if(z > PARK.z1-60 && Math.abs(x)<210) return 42 + r*44; // Upper-side lower-rise
+  return 56 + r*95 + (r<0.07 ? 140 : 0); }
+function districtArch(x,z,h){ if(h>150){ if(z<-560) return Math.random()<0.5?'deco':'office'; return Math.random()<0.62?'glass':'office'; }
+  if(h<92) return 'brick'; return Math.random()<0.5?'office':'brick'; }
 
-function heightFor(x,z){
-  const r = Math.random();
-  if(z < -640) return 190 + r*210;                       // Financial District skyscrapers (south tip)
-  if(z > -140 && z < 170) return 155 + r*185;            // Midtown cluster (below the park)
-  if(z > PARK.z1 - 60 && Math.abs(x) < 200) return 44 + r*46; // Upper-side lower-rise near/above park
-  return 58 + r*95 + (r<0.07 ? 130 : 0);                 // residential + occasional spike
-}
-
-/* Avenues run N-S (wide spacing in X); cross-streets run E-W (short spacing in Z) — real grid shape. */
-const AVX = 70, CSZ = 54, STREET = 20;
-const streetPos = [], parkPos = [], treePos = [];
-for(let x = -220; x <= 220; x += AVX){
+/* Avenues run N-S (wide spacing X); cross-streets E-W (short spacing Z). */
+const AVX = 68, CSZ = 52, STREET = 18;
+const streetPos = [], parkPos = [], treePos = [], lampPos = [];
+for(let x = -224; x <= 224; x += AVX){
   for(let z = ZMIN; z <= ZMAX; z += CSZ){
     const bx = x + AVX/2, bz = z + CSZ/2;
+    if(inIsland(x,z) && ((Math.round(x/AVX)+Math.round(z/CSZ))%2===0)) lampPos.push({x,z});
     if(!inIsland(bx,bz)) continue;
-    if(inPark(bx,bz)){ parkPos.push({x:bx,z:bz}); if(Math.random()<0.55) treePos.push({x:bx+(Math.random()-.5)*40, z:bz+(Math.random()-.5)*30}); continue; }
+    if(inPark(bx,bz)){ parkPos.push({x:bx,z:bz}); continue; }
     streetPos.push({x:bx,z:bz});
-    const bw = AVX - STREET, bd = CSZ - STREET;
-    addBuilding(bx, bz, bw, bd, heightFor(bx,bz));
+    const bw=AVX-STREET, bd=CSZ-STREET, h=heightFor(bx,bz);
+    addBuilding(bx,bz,bw,bd,h, districtArch(bx,bz,h));
   }
 }
 
-/* instanced ground tiles (asphalt) + park tiles (grass) */
-(function tiles(){
-  const sGeo = new T.BoxGeometry(AVX-4, 0.8, CSZ-4);
-  const sMat = new T.MeshStandardMaterial({ color:0x181521, roughness:.96, metalness:0 });
-  const streets = new T.InstancedMesh(sGeo, sMat, streetPos.length);
-  streetPos.forEach((p,i)=>{ m4.makeTranslation(p.x,0.3,p.z); streets.setMatrixAt(i,m4); });
-  streets.instanceMatrix.needsUpdate = true; scene.add(streets);
-  if(parkPos.length){
-    const pGeo = new T.BoxGeometry(AVX-2, 0.9, CSZ-2);
-    const pMat = new T.MeshStandardMaterial({ color:0x1f5a2a, roughness:1, metalness:0 });
-    const park = new T.InstancedMesh(pGeo, pMat, parkPos.length);
-    parkPos.forEach((p,i)=>{ m4.makeTranslation(p.x,0.35,p.z); park.setMatrixAt(i,m4); });
-    park.instanceMatrix.needsUpdate = true; scene.add(park);
-    // pond
-    const pond = new T.Mesh(new T.CircleGeometry(34,20), new T.MeshStandardMaterial({ color:0x2a6a8a, roughness:.3, metalness:.4 }));
-    pond.rotation.x = -Math.PI/2; pond.position.set((PARK.x0+PARK.x1)/2, 0.5, (PARK.z0+PARK.z1)/2 + 40); scene.add(pond);
+/* ---- STREETS: dark road grid (base) + light sidewalk blocks w/ crosswalks ---- */
+(function streets(){
+  const baseGeo = new T.BoxGeometry(AVX, 0.4, CSZ);
+  const baseMat = new T.MeshStandardMaterial({ color:0x14121c, roughness:.98, metalness:0 });
+  const swCv=document.createElement('canvas'); swCv.width=swCv.height=64; const sg=swCv.getContext('2d');
+  sg.fillStyle='#3a3a44'; sg.fillRect(0,0,64,64);
+  const si=sg.getImageData(0,0,64,64), sd=si.data;
+  for(let i=0;i<sd.length;i+=4){ const n=(snoise(i*0.02,i*0.013)*14)|0; sd[i]=clampB(sd[i]+n); sd[i+1]=clampB(sd[i+1]+n); sd[i+2]=clampB(sd[i+2]+n); }
+  sg.putImageData(si,0,0);
+  sg.fillStyle='rgba(230,230,235,.8)';
+  for(let k=0;k<7;k++){ sg.fillRect(4+k*8,1,4,6); sg.fillRect(4+k*8,57,4,6); sg.fillRect(1,4+k*8,6,4); sg.fillRect(57,4+k*8,6,4); }
+  const swTex=new T.CanvasTexture(swCv);
+  const swGeo = new T.BoxGeometry(AVX-14, 0.6, CSZ-12);
+  const swMat = new T.MeshStandardMaterial({ map:swTex, color:0x9a9aa6, roughness:.9, metalness:0 });
+  const rb = new T.InstancedMesh(baseGeo, baseMat, streetPos.length);
+  streetPos.forEach((p,i)=>{ m4.makeTranslation(p.x,0.15,p.z); rb.setMatrixAt(i,m4); }); rb.instanceMatrix.needsUpdate=true; scene.add(rb);
+  const sw = new T.InstancedMesh(swGeo, swMat, streetPos.length);
+  streetPos.forEach((p,i)=>{ m4.makeTranslation(p.x,0.42,p.z); sw.setMatrixAt(i,m4); }); sw.instanceMatrix.needsUpdate=true; scene.add(sw);
+})();
+
+/* ---- CENTRAL PARK: grass, Reservoir, Pond, Great Lawn, trees, paths ---- */
+const RES = { x:PARK_CX, z:430, rx:40, rz:78 };      // the Reservoir (north)
+const POND= { x:PARK_CX-6, z:168, rx:24, rz:30 };     // the Pond (south)
+function inEll(e,x,z){ const dx=(x-e.x)/e.rx, dz=(z-e.z)/e.rz; return dx*dx+dz*dz < 1; }
+function inParkWater(x,z){ return inEll(RES,x,z)||inEll(POND,x,z); }
+(function park(){
+  if(!parkPos.length) return;
+  const gGeo=new T.BoxGeometry(AVX, 0.6, CSZ);
+  const gMat=new T.MeshStandardMaterial({ color:0x24632e, roughness:1, metalness:0 });
+  const grass=new T.InstancedMesh(gGeo,gMat,parkPos.length);
+  parkPos.forEach((p,i)=>{ m4.makeTranslation(p.x,0.32,p.z); grass.setMatrixAt(i,m4); }); grass.instanceMatrix.needsUpdate=true; scene.add(grass);
+  const waterMat=new T.MeshStandardMaterial({ color:0x2a6a8a, roughness:.22, metalness:.55, envMap:ENV, envMapIntensity:.6 });
+  [RES,POND].forEach(e=>{ const m=new T.Mesh(new T.CircleGeometry(1,28), waterMat); m.rotation.x=-Math.PI/2; m.scale.set(e.rx,e.rz,1); m.position.set(e.x,0.55,e.z); scene.add(m); });
+  // Great Lawn (lighter grass oval)
+  const lawn=new T.Mesh(new T.CircleGeometry(1,26), new T.MeshStandardMaterial({ color:0x3a8a44, roughness:1 }));
+  lawn.rotation.x=-Math.PI/2; lawn.scale.set(34,52,1); lawn.position.set(PARK_CX+2,0.5,300); scene.add(lawn);
+  // main path down the park
+  const pathMat=new T.MeshStandardMaterial({ color:0x6a5a44, roughness:1 });
+  box(PARK_CX, 0.5, (PARK.z0+PARK.z1)/2, 6, 0.4, PARK.z1-PARK.z0-20, pathMat);
+  box(PARK_CX, 0.5, 250, PARK.x1-PARK.x0-14, 0.4, 6, pathMat);
+  box(PARK_CX, 0.5, 500, PARK.x1-PARK.x0-14, 0.4, 6, pathMat);
+  // trees (avoid water)
+  const tp=[];
+  for(let i=0;i<220;i++){ const x=PARK.x0+2+Math.random()*(PARK.x1-PARK.x0-4), z=PARK.z0+4+Math.random()*(PARK.z1-PARK.z0-8);
+    if(inParkWater(x,z)||Math.abs(x-PARK_CX)<4) continue; tp.push({x,z}); }
+  const fGeo=new T.ConeGeometry(4.2,11,6), fMat=new T.MeshStandardMaterial({color:0x2c7a3a,roughness:.9});
+  const tGeo=new T.CylinderGeometry(0.7,0.9,5,5), tMat=new T.MeshStandardMaterial({color:0x4a2f1e,roughness:1});
+  const fol=new T.InstancedMesh(fGeo,fMat,tp.length), trk=new T.InstancedMesh(tGeo,tMat,tp.length);
+  tp.forEach((p,i)=>{ m4.makeTranslation(p.x,9,p.z); fol.setMatrixAt(i,m4); m4.makeTranslation(p.x,2.5,p.z); trk.setMatrixAt(i,m4); });
+  fol.instanceMatrix.needsUpdate=true; trk.instanceMatrix.needsUpdate=true; scene.add(fol); scene.add(trk);
+})();
+
+/* ---- ROOFTOP PROPS: water towers, AC units, antennas ---- */
+(function rooftops(){
+  if(tankPos.length){
+    const baseG=new T.BoxGeometry(7,1.5,7); baseG.translate(0,0.75,0);
+    const tankG=new T.CylinderGeometry(3,3,7,10); tankG.translate(0,3.5,0);
+    const roofG=new T.ConeGeometry(3.7,3,10); roofG.translate(0,1.5,0);
+    const bM=new T.MeshStandardMaterial({color:0x2a2230,roughness:.9}); const wM=new T.MeshStandardMaterial({color:0x6e4c2f,roughness:.95}); const rM=new T.MeshStandardMaterial({color:0x3a2a1c,roughness:.95});
+    const B=new T.InstancedMesh(baseG,bM,tankPos.length), Tk=new T.InstancedMesh(tankG,wM,tankPos.length), Rf=new T.InstancedMesh(roofG,rM,tankPos.length);
+    tankPos.forEach((p,i)=>{ m4.makeTranslation(p.x,p.y,p.z); B.setMatrixAt(i,m4); m4.makeTranslation(p.x,p.y+1.5,p.z); Tk.setMatrixAt(i,m4); m4.makeTranslation(p.x,p.y+8.5,p.z); Rf.setMatrixAt(i,m4); });
+    [B,Tk,Rf].forEach(m=>{ m.instanceMatrix.needsUpdate=true; scene.add(m); });
   }
-  // trees (instanced trunk + foliage)
-  if(treePos.length){
-    const fGeo = new T.ConeGeometry(4.5, 11, 6); const fMat = new T.MeshStandardMaterial({ color:0x2c7a3a, roughness:.9 });
-    const tGeo = new T.CylinderGeometry(0.7,0.9,5,5); const tMat = new T.MeshStandardMaterial({ color:0x4a2f1e, roughness:1 });
-    const fol = new T.InstancedMesh(fGeo, fMat, treePos.length);
-    const trk = new T.InstancedMesh(tGeo, tMat, treePos.length);
-    treePos.forEach((p,i)=>{ m4.makeTranslation(p.x,9,p.z); fol.setMatrixAt(i,m4); m4.makeTranslation(p.x,2.5,p.z); trk.setMatrixAt(i,m4); });
-    fol.instanceMatrix.needsUpdate = true; trk.instanceMatrix.needsUpdate = true; scene.add(fol); scene.add(trk);
+  if(acPos.length){
+    const g=new T.BoxGeometry(1,1,1); g.translate(0,0.5,0); const mm=new T.MeshStandardMaterial({color:0x3a3f48,roughness:.7,metalness:.3});
+    const im=new T.InstancedMesh(g,mm,acPos.length);
+    acPos.forEach((p,i)=>{ const s=3+Math.random()*3; m4.makeScale(s,2+Math.random()*2,s); m4.setPosition(p.x,p.y,p.z); im.setMatrixAt(i,m4); });
+    im.instanceMatrix.needsUpdate=true; scene.add(im);
   }
+  if(antPos.length){
+    const g=new T.CylinderGeometry(0.4,0.7,10,5); g.translate(0,5,0); const mm=spireMat;
+    const im=new T.InstancedMesh(g,mm,antPos.length);
+    antPos.forEach((p,i)=>{ m4.makeScale(1,p.hh/10,1); m4.setPosition(p.x,p.y,p.z); im.setMatrixAt(i,m4); });
+    im.instanceMatrix.needsUpdate=true; scene.add(im);
+  }
+})();
+
+/* ---- STREETLIGHTS (emissive lamps read as glow at dusk) ---- */
+(function lights(){
+  if(!lampPos.length) return;
+  const poleG=new T.CylinderGeometry(0.35,0.5,13,6); poleG.translate(0,6.5,0);
+  const poleM=new T.MeshStandardMaterial({color:0x20202a,roughness:.8});
+  const lampG=new T.BoxGeometry(1.8,0.8,1.8); lampG.translate(0,0,0);
+  const lampM=new T.MeshStandardMaterial({color:0xffe6b0,emissive:0xffdca0,emissiveIntensity:1.3,roughness:.4});
+  const P=new T.InstancedMesh(poleG,poleM,lampPos.length), L=new T.InstancedMesh(lampG,lampM,lampPos.length);
+  lampPos.forEach((p,i)=>{ m4.makeTranslation(p.x,0,p.z); P.setMatrixAt(i,m4); m4.makeTranslation(p.x,13,p.z); L.setMatrixAt(i,m4); });
+  P.instanceMatrix.needsUpdate=true; L.instanceMatrix.needsUpdate=true; scene.add(P); scene.add(L);
+})();
+
+/* ---- NEON BILLBOARDS (abstract, Midtown) ---- */
+(function neon(){
+  function neonTex(seed){ const cv=document.createElement('canvas'); cv.width=128; cv.height=64; const g=cv.getContext('2d');
+    g.fillStyle='#08060e'; g.fillRect(0,0,128,64);
+    const cols=['#ff2d7e','#28e0ff','#ffd23f','#7cff5a','#c56bff','#ff7a3d'];
+    for(let i=0;i<4;i++){ g.fillStyle=cols[(seed+i)%cols.length]; g.globalAlpha=.9;
+      g.fillRect(8, 8+i*13, 30+((seed*7+i*11)%80), 8); }
+    g.globalAlpha=1; return new T.CanvasTexture(cv); }
+  neonList.slice(0,16).forEach((n,i)=>{
+    const tex=neonTex(i); const w=Math.min(n.w*0.8,26), h=w*0.5;
+    const m=new T.Mesh(new T.PlaneGeometry(w,h), new T.MeshBasicMaterial({map:tex, toneMapped:false}));
+    const face=(i%2===0)?1:-1; m.position.set(n.x, n.y, n.z + face*(n.d/2+0.6)); if(face<0) m.rotation.y=Math.PI; scene.add(m);
+    const side=(i%3===0);
+    if(side){ m.rotation.y=Math.PI/2; m.position.set(n.x + (n.w/2+0.6)*((i%2)?1:-1), n.y, n.z); }
+  });
+})();
+
+/* ---- TRAFFIC (animated, on the avenues) ---- */
+let updateTraffic=null;
+(function traffic(){
+  const laneX=[-128,-72,72,128]; const CARN=40;
+  const g=new T.BoxGeometry(4.4,2.2,9); const mm=new T.MeshStandardMaterial({roughness:.5,metalness:.4});
+  const cars=new T.InstancedMesh(g,mm,CARN); const carData=[];
+  const palette=[0xff4030,0xffffff,0x2a3a6a,0xf0d040,0x303030,0xc03030,0x40c0d0];
+  for(let i=0;i<CARN;i++){ const lane=laneX[i%laneX.length]; const dir=(i%2)?1:-1;
+    carData.push({ x:lane+(dir>0?-3:3), z:-540+Math.random()*1080, v:dir*(34+Math.random()*30), dir });
+    cars.setColorAt(i, new T.Color(palette[i%palette.length])); }
+  cars.instanceColor.needsUpdate=true; scene.add(cars);
+  updateTraffic=function(dt){ for(let i=0;i<CARN;i++){ const c=carData[i]; c.z+=c.v*dt;
+    if(c.z>558){ c.z=-558; } else if(c.z<-558){ c.z=558; }
+    m4.makeTranslation(c.x,1.7,c.z); cars.setMatrixAt(i,m4); } cars.instanceMatrix.needsUpdate=true; };
+  window.__cityAnimate = updateTraffic;
+})();
+
+/* ---- SUSPENSION BRIDGE over the East River ---- */
+(function bridge(){
+  const z0=-360, hw=islandHalfW(z0);
+  const deckM=new T.MeshStandardMaterial({color:0x3a3540,roughness:.8,metalness:.2});
+  const towerM=new T.MeshStandardMaterial({color:0x7a3a34,roughness:.7,metalness:.2});
+  const x0=hw+6, x1=760, cx=(x0+x1)/2, len=x1-x0;
+  box(cx, 40, z0, len, 2, 24, deckM);
+  const t1x=x0+len*0.28, t2x=x0+len*0.72;
+  [t1x,t2x].forEach(tx=>{ box(tx,0,z0-9,10,120,10,towerM); box(tx,0,z0+9,10,120,10,towerM); box(tx,116,z0,26,6,26,towerM); });
+  const cableM=new T.MeshStandardMaterial({color:0x9aa0b0,roughness:.5,metalness:.6});
+  [-9,9].forEach(zc=>{ const pts=[new T.Vector3(x0,44,z0+zc),new T.Vector3(t1x,116,z0+zc),new T.Vector3(cx,64,z0+zc),new T.Vector3(t2x,116,z0+zc),new T.Vector3(x1,46,z0+zc)];
+    const curve=new T.CatmullRomCurve3(pts); const tube=new T.Mesh(new T.TubeGeometry(curve,40,0.7,6,false),cableM); scene.add(tube); });
+})();
+
+/* ---- DISTANT SKYLINE (silhouette depth beyond the water) ---- */
+(function distant(){
+  const g=new T.BoxGeometry(1,1,1); g.translate(0,0.5,0);
+  const mm=new T.MeshStandardMaterial({color:0x140f22,roughness:1,metalness:0});
+  const n=170, im=new T.InstancedMesh(g,mm,n);
+  for(let i=0;i<n;i++){ const a=(i/n)*Math.PI*2 + (i%4)*0.13; const rad=1300+((i*89)%1000);
+    const x=Math.cos(a)*rad, z=Math.sin(a)*rad*1.25, w=40+((i*53)%90), h=50+((i*97)%280);
+    m4.makeScale(w,h,w); m4.setPosition(x,0,z); im.setMatrixAt(i,m4); }
+  im.instanceMatrix.needsUpdate=true; scene.add(im);
 })();
 
 const STREET_Y = 0.7;
@@ -548,6 +682,7 @@ function update(dt){
   // wind audio from speed
   if(SFX.windGain){ const sp=player.vel.length(); SFX.windGain.gain.value = Math.min(0.28, Math.max(0, (sp-14)/120)); }
   if(window.__water){ window.__water.offset.x += dt*0.006; window.__water.offset.y += dt*0.004; }
+  if(window.__cityAnimate) window.__cityAnimate(dt);
 
   updateModel(dt); updateCamera(dt); updateHUD(); frameCount++;
   if(frameCount%2===0) drawMinimap();
