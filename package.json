@@ -4,12 +4,16 @@
   "private": true,
   "description": "Three.js Spider-Man-style web-swinging sandbox over a procedural Manhattan.",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node test/harness.js"
   },
   "engines": {
     "node": ">=18"
   },
   "dependencies": {
     "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "three": "0.128.0"
   }
 }

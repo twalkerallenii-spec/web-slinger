@@ -825,11 +825,19 @@ function update(dt){
 }
 
 /* ============================ MODEL ANIMATION ============================ */
-let animT=0;
+let animT=0, heroLean=0;
 function updateModel(dt){ animT+=dt; hero.position.set(player.pos.x, player.pos.y+4.6, player.pos.z);
   if(player.state==='wall'){ const n=player.wallNormal; hero.lookAt(player.pos.x-n.x,player.pos.y,player.pos.z-n.z);
     armL.rotation.set(0.3,0,-1.6); armR.rotation.set(0.3,0,1.6); legL.rotation.set(0,0,-0.5); legR.rotation.set(0,0,0.5);
-  } else { const look=_v.copy(player.pos).add(player.facing); hero.lookAt(look.x,player.pos.y+player.vel.y*0.02,look.z); }
+  } else {
+    const look=_v.copy(player.pos).add(player.facing); hero.lookAt(look.x, player.pos.y+player.vel.y*0.01, look.z);
+    const hs=Math.hypot(player.vel.x,player.vel.z);
+    let leanT = 0;                                   // ground/idle: upright
+    if(player.state==='swing') leanT = 1.15;         // swing: lean into a horizontal arc
+    else if(player.state==='air') leanT = Math.min(1.3, 0.3 + hs*0.02);   // dive faster = flatter
+    heroLean += (leanT - heroLean) * Math.min(1, dt*9);
+    hero.rotateX(heroLean);                          // pitch the body forward (feet trail behind)
+  }
   if(player.state==='swing'){ armL.rotation.set(-2.4,0,-0.25); armR.rotation.set(-2.4,0,0.25);
     const s=Math.sin(animT*4)*0.3; legL.rotation.set(0.6+s,0,-0.15); legR.rotation.set(0.6-s,0,0.15); hero.rotation.z=0;
   } else if(player.state==='ground'){ const sp=Math.hypot(player.vel.x,player.vel.z);
@@ -916,6 +924,14 @@ if(goBtn) goBtn.addEventListener('click', ()=>{
   crimeCooldown=6; toast('Hold SPACE or LEFT-CLICK to swing');
 });
 addEventListener('blur', ()=>{ mouseDownL=mouseDownR=false; for(const k in keys) keys[k]=false; });
+
+/* Debug/test hook — lets the headless harness observe real game state (harmless in the browser). */
+window.__wsState = function(){ return {
+  pos:[player.pos.x, player.pos.y, player.pos.z], vel:[player.vel.x, player.vel.y, player.vel.z],
+  speed:player.vel.length(), state:player.state, hp:player.hp, web:player.web,
+  score:player.score, tokens:player.tokens, kos:player.kos, combo:player.combo, suit:curSuit,
+  buildings:buildings.length, enemies:enemies.length, tokensLeft:tokens.length,
+  camY:camera.position.y, editing:!!window.__editing, started:started }; };
 
 respawn(); camera.position.set(0,260,160); camera.lookAt(0,140,0);
 drawMinimap(); frame();
