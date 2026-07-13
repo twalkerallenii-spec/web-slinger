@@ -22,6 +22,19 @@ html,body { width:100%; height:100%; overflow:hidden; background:#12060f; font-f
            border-radius:12px; border:1px solid rgba(255,255,255,.18);
            box-shadow:0 6px 20px rgba(0,0,0,.5); background:rgba(8,10,22,.5); backdrop-filter:blur(4px); }
 
+#editor { display:none; top:50%; left:16px; transform:translateY(-50%); z-index:12; pointer-events:auto;
+          background:rgba(10,14,24,.82); border:1px solid rgba(90,180,255,.35); border-radius:14px;
+          padding:14px 16px; width:250px; backdrop-filter:blur(8px); box-shadow:0 10px 30px rgba(0,0,0,.5); }
+#editor h4 { color:#24d3ff; font-size:13px; letter-spacing:1px; margin-bottom:8px; }
+#editor .edims { font-size:20px; font-weight:800; color:#fff; margin-bottom:8px; letter-spacing:.5px; }
+#editor .ekeys { font-size:11px; color:#b8c6e0; line-height:1.9; }
+#editor kbd { background:rgba(255,255,255,.15); border-radius:4px; padding:1px 6px; font-family:inherit; font-weight:700; font-size:10px; }
+#editor .ebtns { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin:10px 0; }
+#editor .ebtns button { cursor:pointer; border:none; border-radius:8px; padding:7px 0; font-weight:700; font-size:12px;
+          color:#04121f; background:linear-gradient(90deg,#24d3ff,#7fe0ff); transition:transform .1s; }
+#editor .ebtns button:hover { transform:translateY(-1px); }
+#editor .ebtns #eClear { background:linear-gradient(90deg,#ff5a6e,#ff8a7f); color:#210608; }
+
 #combo { position:fixed; top:33%; left:50%; transform:translateX(-50%); font-size:34px; font-weight:800;
          color:#ffd23f; text-shadow:0 3px 14px rgba(0,0,0,.9); opacity:0; z-index:11; pointer-events:none;
          transition:opacity .25s; letter-spacing:.5px; }

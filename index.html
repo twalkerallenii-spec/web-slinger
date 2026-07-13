@@ -32,6 +32,19 @@
 
 <canvas id="minimap"></canvas>
 
+<div id="editor" class="hud">
+  <h4>🏗️ WORLD BUILDER</h4>
+  <div class="edims" id="edims">W 42 · D 42 · H 90</div>
+  <div class="ekeys"><kbd>WASD</kbd> move &nbsp; <kbd>drag</kbd> orbit &nbsp; <kbd>wheel</kbd> zoom</div>
+  <div class="ekeys"><kbd>Space</kbd> place &nbsp; <kbd>⌫</kbd> delete nearest</div>
+  <div class="ekeys"><kbd>↑↓</kbd> height &nbsp; <kbd>←→</kbd> width &nbsp; <kbd>[ ]</kbd> depth</div>
+  <div class="ebtns">
+    <button id="eSave">Save</button><button id="eExport">Export</button>
+    <button id="eImport">Import</button><button id="eClear">Clear</button>
+  </div>
+  <div class="ekeys">Blocks: <b id="ecount">0</b> &nbsp;·&nbsp; <kbd>B</kbd> to exit</div>
+</div>
+
 <div id="combo"></div>
 <div id="crosshair"></div>
 <div id="toast"></div>
@@ -43,7 +56,7 @@
   <div><kbd>SHIFT / RMB</kbd> web-zip &nbsp; <kbd>W</kbd>(swing) reel in for boost</div>
   <div><kbd>F</kbd> punch &nbsp; <kbd>G</kbd> heavy kick &nbsp; <kbd>Q</kbd> web-strike thug</div>
   <div><kbd>E</kbd> cling wall &nbsp; <kbd>1-4/T</kbd> swap suit &nbsp; <kbd>R</kbd> respawn</div>
-  <div><kbd>H</kbd> hide help</div>
+  <div><kbd>B</kbd> World Builder (place/edit buildings) &nbsp; <kbd>H</kbd> hide help</div>
 </div>
 
 <div id="start">

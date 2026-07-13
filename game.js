@@ -541,7 +541,7 @@ addEventListener('keydown', e=>{ const k=e.key.toLowerCase(); keys[k]=true;
   if(k>='1'&&k<='4'){ swapSuit((+k)-1); } });
 addEventListener('keyup', e=>{ keys[e.key.toLowerCase()]=false; });
 let mouseDownL=false, mouseDownR=false, yaw=0, pitch=0.15, pointerLocked=false;
-canvas.addEventListener('mousedown', e=>{ if(!started) return; if(!pointerLocked) canvas.requestPointerLock();
+canvas.addEventListener('mousedown', e=>{ if(!started) return; if(!window.__editing && !pointerLocked) canvas.requestPointerLock();
   if(e.button===0) mouseDownL=true; if(e.button===2) mouseDownR=true; });
 addEventListener('mouseup', e=>{ if(e.button===0) mouseDownL=false; if(e.button===2) mouseDownR=false; });
 addEventListener('contextmenu', e=> e.preventDefault());
@@ -672,7 +672,9 @@ function landImpact(){ sndThud(); if(lastFallSpeed<-35){ toast('Superhero landin
 /* ============================ UPDATE ============================ */
 let started=false; const clock=new T.Clock();
 function update(dt){
-  dt=Math.min(dt,0.033); const GRAV=-46;
+  dt=Math.min(dt,0.033);
+  if(window.__editing){ window.__editorUpdate(dt); return; }
+  const GRAV=-46;
   if(player.comboT>0){ player.comboT-=dt; if(player.comboT<=0){ player.combo=0; comboEl.style.opacity='0'; } }
   if(player.attackT>0) player.attackT-=dt; if(player.invuln>0) player.invuln-=dt;
   player.web=Math.min(100,player.web+dt*14);
@@ -846,4 +848,99 @@ document.getElementById('goBtn').addEventListener('click', ()=>{
   crimeCooldown=6; toast('Hold SPACE or LEFT-CLICK to swing');
 });
 addEventListener('blur', ()=>{ mouseDownL=mouseDownR=false; for(const k in keys) keys[k]=false; });
+
+/* ============================ WORLD BUILDER (in-game block editor) ============================ */
+/* Inspired by 3dWorldBuilder — place / resize / delete building blocks, saved to localStorage
+   and exportable as JSON. Toggle with B. Your blocks become real city (swing off them, collide). */
+(function worldBuilder(){
+  const STORE = 'webSlingerWorld_v1';
+  const userBlocks = [];
+  let editing=false, gw=42, gd=42, gh=90;
+  const cursor = new T.Vector3(0, 0, -320);
+  let eYaw=0.7, ePitch=0.55, eDist=210;
+  const ghostMat = new T.MeshBasicMaterial({ color:0x24d3ff, transparent:true, opacity:0.32, depthWrite:false });
+  const ghost = new T.Mesh(boxGeo, ghostMat); ghost.visible=false; scene.add(ghost);
+  const ghostEdge = new T.LineSegments(new T.EdgesGeometry(new T.BoxGeometry(1,1,1)), new T.LineBasicMaterial({ color:0x9ff0ff }));
+  ghostEdge.visible=false; scene.add(ghostEdge);
+
+  function addUserBlock(x,z,w,d,h,save){
+    const t = pickTex('office',x,z); t.needsUpdate=true; t.repeat.set(Math.max(1,w/8),Math.max(1,h/8));
+    const mesh = box(x,0,z,w,h,d, makeBuildingMat('office',t));
+    const entry = { x, z, w, d, h }; buildings.push(entry);
+    const u = { entry, mesh, x, z, w, d, h }; userBlocks.push(u);
+    if(save!==false) saveWorld(); return u;
+  }
+  function removeNearest(x,z){
+    let idx=-1, best=1e9; userBlocks.forEach((u,i)=>{ const dd=Math.hypot(u.x-x,u.z-z); if(dd<best){best=dd; idx=i;} });
+    if(idx<0){ toast('No built blocks to remove'); return; }
+    const u=userBlocks[idx]; scene.remove(u.mesh);
+    const bi=buildings.indexOf(u.entry); if(bi>=0) buildings.splice(bi,1);
+    userBlocks.splice(idx,1); saveWorld();
+  }
+  function clearWorld(){ userBlocks.slice().forEach(u=>{ scene.remove(u.mesh); const bi=buildings.indexOf(u.entry); if(bi>=0) buildings.splice(bi,1); }); userBlocks.length=0; saveWorld(); toast('Cleared built blocks'); }
+  function saveWorld(){ try{ localStorage.setItem(STORE, JSON.stringify(userBlocks.map(u=>({x:Math.round(u.x),z:Math.round(u.z),w:u.w,d:u.d,h:u.h})))); }catch(e){} updateCount(); }
+  function loadWorld(){ try{ const s=localStorage.getItem(STORE); if(!s) return; JSON.parse(s).forEach(b=>addUserBlock(b.x,b.z,b.w,b.d,b.h,false)); }catch(e){} updateCount(); }
+  function exportWorld(){ try{
+    const data = JSON.stringify(userBlocks.map(u=>({x:Math.round(u.x),z:Math.round(u.z),w:u.w,d:u.d,h:u.h})), null, 0);
+    const blob = new Blob([data], {type:'application/json'}); const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob); a.download='web-slinger-world.json'; a.click(); toast('Exported '+userBlocks.length+' blocks');
+  }catch(e){ toast('Export failed'); } }
+  function importWorld(){ const s=prompt('Paste world JSON (array of {x,z,w,d,h}):'); if(!s) return;
+    try{ const arr=JSON.parse(s); clearWorld(); arr.forEach(b=>addUserBlock(b.x,b.z,b.w,b.d,b.h,false)); saveWorld(); toast('Imported '+arr.length+' blocks'); }catch(e){ toast('Invalid JSON'); } }
+
+  const panel = document.getElementById('editor');
+  function updateDims(){ const el=document.getElementById('edims'); if(el) el.textContent = `W ${gw}  ·  D ${gd}  ·  H ${gh}`; }
+  function updateCount(){ const el=document.getElementById('ecount'); if(el) el.textContent = userBlocks.length; }
+
+  function toggleEdit(){ editing=!editing; window.__editing=editing;
+    ghost.visible=ghostEdge.visible=editing;
+    if(panel) panel.style.display = editing?'block':'none';
+    const ch=document.getElementById('crosshair'); if(ch) ch.style.display = editing?'none':'block';
+    if(editing){ if(document.pointerLockElement) document.exitPointerLock(); mouseDownL=false;
+      cursor.set(player.pos.x, 0, player.pos.z);
+      toast('🏗️ World Builder ON — WASD move · Space place · ⌫ delete · B to exit'); }
+    else { toast('World Builder OFF — back to swinging'); }
+    updateDims(); updateCount();
+  }
+
+  window.__editorUpdate = function(dt){
+    const f = _v.set(-Math.sin(eYaw),0,-Math.cos(eYaw));
+    const r = _v2.set(Math.cos(eYaw),0,-Math.sin(eYaw));
+    const sp = 150*dt*(keys['shift']?2.4:1);
+    if(keys['w']) cursor.addScaledVector(f, sp);
+    if(keys['s']) cursor.addScaledVector(f, -sp);
+    if(keys['d']) cursor.addScaledVector(r, sp);
+    if(keys['a']) cursor.addScaledVector(r, -sp);
+    cursor.y=0;
+    ghost.position.set(cursor.x,0,cursor.z); ghost.scale.set(gw,gh,gd);
+    ghostEdge.position.set(cursor.x,gh/2,cursor.z); ghostEdge.scale.set(gw,gh,gd);
+    const cx=cursor.x + Math.sin(eYaw)*Math.cos(ePitch)*eDist;
+    const cy=Math.sin(ePitch)*eDist + 24;
+    const cz=cursor.z + Math.cos(eYaw)*Math.cos(ePitch)*eDist;
+    camera.position.set(cx,cy,cz); camera.lookAt(cursor.x, gh*0.5, cursor.z);
+    camera.fov += (62-camera.fov)*Math.min(1,dt*4); camera.updateProjectionMatrix();
+  };
+
+  addEventListener('keydown', e=>{ const k=e.key.toLowerCase();
+    if(k==='b'){ if(started) toggleEdit(); return; }
+    if(!editing) return;
+    if(k===' '||k==='enter'){ e.preventDefault(); addUserBlock(cursor.x,cursor.z,gw,gd,gh); toast('Placed block'); }
+    else if(k==='backspace'||k==='delete'){ e.preventDefault(); removeNearest(cursor.x,cursor.z); }
+    else if(k==='arrowup'){ e.preventDefault(); gh=Math.min(340,gh+6); }
+    else if(k==='arrowdown'){ e.preventDefault(); gh=Math.max(8,gh-6); }
+    else if(k==='arrowright'){ e.preventDefault(); gw=Math.min(140,gw+4); }
+    else if(k==='arrowleft'){ e.preventDefault(); gw=Math.max(8,gw-4); }
+    else if(k==='['){ gd=Math.max(8,gd-4); }
+    else if(k===']'){ gd=Math.min(140,gd+4); }
+    updateDims();
+  });
+  addEventListener('mousemove', e=>{ if(editing && mouseDownL){ eYaw-=e.movementX*0.005; ePitch=Math.max(0.12,Math.min(1.45,ePitch-e.movementY*0.005)); } });
+  addEventListener('wheel', e=>{ if(editing){ eDist=Math.max(50,Math.min(650,eDist+e.deltaY*0.2)); } }, {passive:true});
+
+  function wire(id,fn){ const el=document.getElementById(id); if(el) el.addEventListener('click', ()=>{ fn(); }); }
+  wire('eSave', ()=>{ saveWorld(); toast('Saved to browser'); });
+  wire('eExport', exportWorld); wire('eImport', importWorld); wire('eClear', clearWorld);
+
+  loadWorld();
+})();
 })();
