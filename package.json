@@ -1,0 +1,15 @@
+{
+  "name": "web-slinger",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Three.js Spider-Man-style web-swinging sandbox over a procedural Manhattan.",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
